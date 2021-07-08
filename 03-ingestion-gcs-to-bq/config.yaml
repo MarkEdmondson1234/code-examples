@@ -1,0 +1,37 @@
+project: learning-ga4
+datasetid: crm_imports
+schema:
+  crm_bookings:
+    fields:
+        - name: BOOK_ID
+          type: STRING
+        - name: BOOKING_ACTIVE
+          type: STRING
+        - name: BOOKING_DEPOSIT
+          type: STRING
+        - name: DATE
+          type: STRING
+        - name: DEPARTURE_DATE
+          type: STRING
+  crm_permissions:
+    fields:
+        - name: USER_ID
+          type: STRING
+        - name: PERMISSION
+          type: STRING
+        - name: STATUS
+          type: STRING
+        - name: SOURCE
+          type: STRING
+        - name: PERMISSION_DATE
+          type: STRING
+  crm_sales:
+    fields:
+        - name: SALES_ID
+          type: STRING
+        - name: SALES_EMAIL
+          type: STRING
+        - name: SALES_FIRST_NAME
+          type: STRING
+        - name: SALES_LAST_NAME
+          type: STRING
