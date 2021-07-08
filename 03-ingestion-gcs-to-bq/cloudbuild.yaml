@@ -3,8 +3,8 @@ steps:
   args: ['functions',
          'deploy',
          'gcs_to_bq',
+         '--source=03-ingestion-gcs-to-bq',
          '--runtime=python39',
          '--region=europe-west1',
          '--trigger-resource=marks-crm-imports-2021',
          '--trigger-event=google.storage.object.finalize']
-         
