@@ -6,7 +6,12 @@ import datetime
 from google.cloud import bigquery
 from google.cloud.bigquery import LoadJobConfig
 from google.cloud.bigquery import SchemaField
+import google.cloud.logging
 
+# set up logging https://cloud.google.com/logging/docs/setup/python
+client = google.cloud.logging.Client()
+client.get_default_handler()
+client.setup_logging()
 
 # load config.yaml into config
 config_file = "config.yaml"
@@ -51,35 +56,41 @@ def create_schema(schema_config):
                             mode=mode,
                             description=description)
         SCHEMA.append(entry)
+        
+    logging.debug('SCHEMA created {}'.format(SCHEMA))
 
     return SCHEMA
 
 
     
-def make_tbl_name(table_id):
+def make_tbl_name(table_id, schema=False):
 
     t_split = table_id.split('_20')
 
     name = t_split[0]
+    
+    if schema: return name
 
     suffix = ''.join(re.findall('\d\d', table_id)[0:4])
 
     return name + '$' + suffix
+    
 
 def query_schema(table_id, job_config):
 
-    table_name = make_tbl_name(table_id)
+    schema_name = make_tbl_name(table_id, schema=True)
 
+    logging.info('Looking for schema_name: {} for import: {}'.format(schema_name, table_id))
     # if we have no configuration attempt auto-detection
     # recommended only for development tables
-    if table_name not in config['schema']:
-        logging.info('No config found. Using auto detection of schema for table_id: {}'.format(table_id))
+    if schema_name not in config['schema']:
+        logging.info('No config found. Using auto detection of schema')
         job_config.autodetect = True
-        return table_name, job_config
+        return job_config
 
-    schema_config = config['schema'][table_name]['fields']
+    logging.info('Found schema for ' + schema_name)
 
-    logging.info('Using specified schema for table_id:' + table_id)
+    schema_config = config['schema'][schema_name]['fields']
 
     job_config.schema = create_schema(schema_config)
 
@@ -89,7 +100,7 @@ def query_schema(table_id, job_config):
     job_config.field_delimiter = ','
     job_config.allow_quoted_newlines = True
 
-    return table_name, job_config
+    return job_config
 
 def load_gcs_bq(uri, table_id, project, dataset_id):
 
@@ -103,8 +114,9 @@ def load_gcs_bq(uri, table_id, project, dataset_id):
     job_config.encoding = bigquery.Encoding.UTF_8
     job_config.time_partitioning = bigquery.TimePartitioning()
 
-    table_name, job_config = query_schema(table_id, job_config)
+    job_config = query_schema(table_id, job_config)
 
+    table_name = make_tbl_name(table_id)
     table_ref = dataset_ref.table(table_name)
 
     job = client.load_table_from_uri(
