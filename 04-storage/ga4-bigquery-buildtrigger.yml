@@ -1,0 +1,6 @@
+steps:
+- name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  dir: '04-storage'
+  args: ['-c',
+         'bq --project_id=$PROJECT_ID query --use_legacy_sql=false --destination_table=tidydata.ga4_pageviews < ./ga4-agg.sql']

@@ -2,7 +2,7 @@ library(charlatan)  # generate fake names
 library(bigQueryR)
 
 bqr_global_project("learning-ga4")
-bqr_global_dataset("crm_imports")
+bqr_global_dataset("crm_imports_us")
 
 # downloaded from GA4 BigQuery demo dataset
 cids <- read.csv(file = "08-segmentation/crm_imports/ga4-demo-cids.csv",
@@ -48,15 +48,14 @@ fake$created_ts <- NULL
 filename <- "08-segmentation/crm_imports/fake_crm.csv"
 write.csv(fake, file = filename, row.names = FALSE)
 
-bqr_auth()
-bqr_delete_table(projectId = "learning-ga4",
-                 datasetId = "crm_imports",
-                 tableId = "fake_crm_transactions")
-bqr_create_table(projectId = "learning-ga4",
-                 datasetId = "crm_imports",
-                 tableId = "fake_crm_transactions",
+# fake <- read.csv(filename,stringsAsFactors = FALSE, colClasses = "character")
+
+bqr_auth(email = "me@markedmondson.me")
+bqr_global_project("learning-ga4")
+bqr_global_dataset("crm_imports_us")
+
+bqr_delete_table(tableId = "fake_crm_transactions")
+bqr_create_table(tableId = "fake_crm_transactions",
                  timePartitioning = TRUE)
-bqr_upload_data(projectId = "learning-ga4",
-                datasetId = "crm_imports",
-                tableId = "fake_crm_transactions",
+bqr_upload_data(tableId = "fake_crm_transactions",
                 upload_data = fake)
