@@ -1,0 +1,34 @@
+library(bigQueryR)
+googleAuthR::gar_gce_auth()
+
+# the GA4 dataset
+bqr_global_dataset("analytics_206670707")
+
+query_client_id <- function(client_id, sql_file){
+  
+  # read in SQL file and interpolate client_id
+  sql <- readChar(sql_file, file.size(sql_file))
+  sql_client_id <- sprintf(sql, client_id)
+  
+  results <- bqr_query(
+    query = sql_client_id,
+    useLegacySql=FALSE
+  )
+  
+  if(nrow(results) > 0){
+    message("Writing ", nrow(results), " rows to bigquery_results.csv")
+    write.csv(results, file = "/workspace/bigquery_results.csv", row.names = FALSE)
+  } else {
+    message("No data found for ", client_id)
+  }
+  
+  TRUE
+  
+}
+
+client_id <- Sys.getenv("CLIENT_ID")
+if(nzchar(client_id)){
+  query_client_id(client_id)
+} else {
+  message("Could not find client_id")
+}
