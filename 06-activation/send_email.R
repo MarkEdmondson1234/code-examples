@@ -33,7 +33,7 @@ the_email <- Sys.getenv("EMAIL")
 if(nzchar(the_email)){
   email %>%
     smtp_send(
-      to = "jane_doe@example.com",
+      to = the_email,
       from = "ga4-example@markedmondson.me",
       subject = "Testing the `smtp_send()` function",
       credentials = creds_file("/workspace/blastula_gmail_creds")
