@@ -1,4 +1,5 @@
 library(bigQueryR)
+options(googleAuthR.scopes.selected = "https://www.googleapis.com/auth/cloud-platform")
 googleAuthR::gar_gce_auth()
 
 # the GA4 dataset
