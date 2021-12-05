@@ -38,7 +38,7 @@ if(nzchar(the_email)){
   email %>%
     smtp_send(
       to = the_email,
-      from = "ga4-example@markedmondson.me",
+      from = "me@markedmondson.me",
       subject = "Testing the `smtp_send()` function",
       credentials = creds_file("/workspace/blastula_gmail_creds")
     )
