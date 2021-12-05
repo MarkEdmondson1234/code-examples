@@ -16,13 +16,13 @@ query_client_id <- function(client_id, sql_file){
     useLegacySql=FALSE
   )
   
-  if(nrow(results) > 0){
-    message("Writing ", nrow(results), " rows to bigquery_results.csv")
-    str(results)
-    write.csv(results, file = "/workspace/bigquery_results.csv", row.names = FALSE)
-  } else {
-    message("No data found for ", client_id)
+  if(inherits(results, "bigQueryR_query_error")){
+    stop("Error in query:", results$error, results$message, call. = FALSE)
   }
+  
+  message("Writing ", nrow(results), " rows to bigquery_results.csv")
+  write.csv(results, file = "/workspace/bigquery_results.csv", row.names = FALSE)
+
   
   TRUE
   
