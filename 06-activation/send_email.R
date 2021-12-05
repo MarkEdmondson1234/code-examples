@@ -2,6 +2,10 @@ library(blastula)
 
 the_data <- read.csv("/workspace/bigquery_results.csv")
 
+if(nrow(the_data) < 1){
+  stop("Data only one row, stopping")
+}
+
 # Get a nicely formatted date/time string
 date_time <- add_readable_time()
 
