@@ -28,11 +28,18 @@ for sun + cloud photos:
 footer = md(glue::glue("Email sent on {date_time}."))
   )
 
-email %>%
-  smtp_send(
-    to = "jane_doe@example.com",
-    from = "joe_public@example.net",
-    subject = "Testing the `smtp_send()` function",
-    credentials = creds_file("/workspace/blastula_gmail_creds")
-  )
+the_email <- Sys.getenv("EMAIL")
+
+if(nzchar(the_email)){
+  email %>%
+    smtp_send(
+      to = "jane_doe@example.com",
+      from = "ga4-example@markedmondson.me",
+      subject = "Testing the `smtp_send()` function",
+      credentials = creds_file("/workspace/blastula_gmail_creds")
+    )
+} else {
+  message("Could not find email in EMAIL env var")
+}
+
 
