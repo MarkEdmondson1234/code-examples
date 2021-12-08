@@ -34,7 +34,7 @@ if(nzchar(the_email)){
       credentials = creds_file("/workspace/blastula_gmail_creds")
     )
 } else {
-  message("Could not find email in EMAIL env var")
+  stop("Could not find email in EMAIL env var")
 }
 
 

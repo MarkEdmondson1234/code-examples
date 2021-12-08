@@ -34,5 +34,5 @@ client_id <- Sys.getenv("CLIENT_ID")
 if(nzchar(client_id)){
   query_client_id(client_id, "/workspace/06-activation/user-activity-ga4.sql")
 } else {
-  message("Could not find client_id")
+  stop("Could not find client_id")
 }
