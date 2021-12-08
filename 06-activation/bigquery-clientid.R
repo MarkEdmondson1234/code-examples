@@ -3,6 +3,7 @@ options(googleAuthR.scopes.selected = "https://www.googleapis.com/auth/cloud-pla
 googleAuthR::gar_gce_auth()
 
 # the GA4 dataset
+bqr_global_project("mark-edmondson-gde")
 bqr_global_dataset("analytics_206670707")
 
 query_client_id <- function(client_id, sql_file){
