@@ -1,4 +1,5 @@
 library(blastula)
+library(formattable)
 
 the_data <- read.csv("/workspace/bigquery_results.csv")
 
@@ -8,26 +9,16 @@ if(nrow(the_data) < 1){
 
 # Get a nicely formatted date/time string
 date_time <- add_readable_time()
-
-# Create an image string using an on-disk
-# image file
-img_file_path <-
-  system.file(
-    "img", "pexels-photo-267151.jpeg",
-    package = "blastula"
-  )
-
-img_string <- add_image(file = img_file_path)
+ga4_table <- format_table(the_data)
 
 email <-
   compose_email(
     body = md(glue::glue(
       "Hello,
-
-This is a *great* picture I found when looking
-for sun + cloud photos:
-
-{img_string}
+      
+  You requested your GA4 browsing history from Mark Edmondson's website.  Here it is!
+  {ga4_table}
+  
 ")),
 footer = md(glue::glue("Email sent on {date_time}."))
   )
@@ -39,7 +30,7 @@ if(nzchar(the_email)){
     smtp_send(
       to = the_email,
       from = "me@markedmondson.me",
-      subject = "Testing the `smtp_send()` function",
+      subject = "Your GA4 history for Mark Edmondson's blog",
       credentials = creds_file("/workspace/blastula_gmail_creds")
     )
 } else {
