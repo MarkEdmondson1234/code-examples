@@ -12,14 +12,13 @@ query_client_id <- function(client_id, sql_file){
   sql <- readChar(sql_file, file.size(sql_file))
   sql_client_id <- sprintf(sql, client_id)
   
-  results <- bqr_query(
+  results <- tryCatch(bqr_query(
     query = sql_client_id,
     useLegacySql=FALSE
-  )
-  
-  if(inherits(results, "bigQueryR_query_error")){
+  ), error = function(err){
+    message(sql_client_id)
     stop("Error in query:", results$error, results$message, call. = FALSE)
-  }
+  })
   
   message("Writing ", nrow(results), " rows to bigquery_results.csv")
   write.csv(results, file = "/workspace/bigquery_results.csv", row.names = FALSE)
