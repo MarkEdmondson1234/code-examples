@@ -20,6 +20,8 @@ query_client_id <- function(client_id, sql_file){
     stop("Error in query:", results$error, results$message, call. = FALSE)
   })
   
+  str(results)
+  
   message("Writing ", nrow(results), " rows to bigquery_results.csv")
   write.csv(results, file = "/workspace/bigquery_results.csv", row.names = FALSE)
 
