@@ -8,7 +8,7 @@ SELECT
 FROM
      `mark-edmondson-gde.analytics_206670707.events_*`
 WHERE
-    _table_suffix between format_date('%%Y%%m%%d',date_sub(current_date(), interval 90 day)) and format_date('%%Y%%m%%d',date_sub(current_date(), interval 0 day))
+    regexp_extract(_table_suffix, r'[0-9]+') between format_date('%%Y%%m%%d',date_sub(current_date(), interval 90 day)) and format_date('%%Y%%m%%d',date_sub(current_date(), interval 0 day))
     and event_name = 'page_view' 
     and user_pseudo_id = '%s'
 ORDER BY event_timestamp
