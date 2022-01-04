@@ -3,4 +3,4 @@ steps:
   entrypoint: 'bash'
   dir: '04-storage'
   args: ['-c',
-         'bq --location=eu --project_id=$PROJECT_ID query --use_legacy_sql=false --destination_table=tidydata.ga4_pageviews$$${(date '+%Y%m%d')} < ./ga4-agg.sql']
+         "bq --location=eu --project_id=$PROJECT_ID query --use_legacy_sql=false --destination_table=tidydata.ga4_pageviews$$${(date '+%Y%m%d')} < ./ga4-agg.sql"]
