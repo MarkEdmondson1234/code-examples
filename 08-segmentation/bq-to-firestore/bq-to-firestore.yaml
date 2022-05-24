@@ -5,57 +5,16 @@
 #  - logging admin
 # workflows-bq-firestore@learning-ga4.iam.gserviceaccount.com
 main:
+    params: [args]
     steps:
-    - init:
+    - init_fs_writes:
         assign:
-            - pageToken: null
-            - bq_query: >
-                SELECT A.name, A.crm_id, created, job,
-                    sum(A.transactions) as sum_crm_trans, 
-                    sum(A.revenue) as sum_crm_rev, 
-                    sum(sum_web_trans) as sum_web_trans,
-                    sum(sum_web_rev) as sum_web_rev,
-                FROM (
-                    (SELECT * FROM `learning-ga4.crm_imports.fake_crm_transactions`) AS A
-                LEFT JOIN  
-                    (SELECT user_pseudo_id,  
-                            count(distinct ecommerce.transaction_id) as sum_web_trans,
-                            sum(ecommerce.purchase_revenue_in_usd) as sum_web_rev,
-                    FROM `learning-ga4.ga4_public_dataset.events_*`
-                    GROUP BY 1) as B
-                ON B.user_pseudo_id = A.cid)
-                GROUP BY 1,2,3,4
-            - projectId: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
-            - collection: "crm-import"
-            - fs_key: crm_id  # change to column holding firestore key
-    - startQuery:
-        call: googleapis.bigquery.v2.jobs.insert
-        args:
-            projectId: ${projectId}
-            body:
-                configuration:
-                    query:
-                        useLegacySql: false
-                        maximumBytesBilled: 1000000000 # 10GB
-                        query: ${bq_query}
-        result: query
-    - getPage:
-        call: googleapis.bigquery.v2.jobs.getQueryResults
-        args:
-            projectId: ${projectId}
-            jobId: ${query.jobReference.jobId}
-            maxResults: 500
-            pageToken: ${pageToken}
-        result: page
-    - extract_schema:
-        call: extract_schema
-        args:
-            page: ${page}
-        result: schema_names
-    - log_schema:
-        call: sys.log
-        args:
-            data: ${schema_names}
+            - fs_writes: []
+            - page: ${args.page}
+            - schema_names: ${args.schema_names} 
+            - projectId: ${args.projectId} 
+            - collection: ${args.collection} 
+            - fs_key: ${args.fs_key}
     - processPage:
         for:
           value: row
@@ -74,44 +33,22 @@ main:
                   result: bq_dict            
             - assign_row_values:
                 assign: 
-                    - values_to_write: ${bq_dict}
                     - fs_key_value: ${map.get(bq_dict, fs_key)}
-                    - document: ${fs_key_value.stringValue}
-            - write_to_firestore:
-                call: googleapis.firestore.v1.projects.databases.documents.patch
-                args:
-                    name: ${"projects/"+projectId+"/databases/(default)/documents/"+collection+"/"+document}
-                    body:
-                        fields: ${values_to_write}
-                result: write_result
-    - checkIfDone:
-        switch:
-            - condition: ${"pageToken" in page and page.pageToken != ""}
-              assign:
-                - pageToken: ${page.pageToken}
-              next: getPage
-
-extract_schema:
-    params: [page]
-    steps:
-        - init_schema_list:
-            assign:
-                - schema_list: []
-                - i: 0
-                - array: ${page.schema.fields}
-        - check_condition:
-            switch:
-                - condition: ${len(array) > i}
-                  next: iterate
-            next: exit_loop
-        - iterate:
-            assign:
-              - value: ${array[i].name}
-              - schema_list: ${list.concat(schema_list, value)}
-              - i: ${i+1}
-            next: check_condition
-        - exit_loop:
-            return: ${schema_list}
+                    - document_id: ${fs_key_value.stringValue}
+                    - name: ${"projects/"+projectId+"/databases/(default)/documents/"+collection+"/"+document_id}
+                    - document: {update: {fields: '${bq_dict}', name: '${name}'}}
+                    - fs_writes: ${list.concat(fs_writes, document)}
+    - log_fs_writes:
+        call: sys.log
+        args:
+            data: ${fs_writes}
+    - batch_write_to_firestore:
+        call: googleapis.firestore.v1.projects.databases.documents.batchWrite
+        args:
+            database: ${"projects/"+projectId+"/databases/(default)"}
+            body:
+                writes: ${fs_writes}
+        result: write_result
 
 map_bq_result:
     params: [row, names]
