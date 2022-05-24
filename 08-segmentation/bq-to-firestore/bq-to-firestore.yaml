@@ -1,0 +1,129 @@
+# iam roles: 
+#  - bq job user
+#  - bq data owner
+#  - cloud datastore user
+#  - logging admin
+# workflows-bq-firestore@learning-ga4.iam.gserviceaccount.com
+main:
+    steps:
+    - init:
+        assign:
+            - pageToken: null
+            - bq_query: >
+                SELECT A.name, A.crm_id, created, job,
+                    sum(A.transactions) as sum_crm_trans, 
+                    sum(A.revenue) as sum_crm_rev, 
+                    sum(sum_web_trans) as sum_web_trans,
+                    sum(sum_web_rev) as sum_web_rev,
+                FROM (
+                    (SELECT * FROM `learning-ga4.crm_imports.fake_crm_transactions`) AS A
+                LEFT JOIN  
+                    (SELECT user_pseudo_id,  
+                            count(distinct ecommerce.transaction_id) as sum_web_trans,
+                            sum(ecommerce.purchase_revenue_in_usd) as sum_web_rev,
+                    FROM `learning-ga4.ga4_public_dataset.events_*`
+                    GROUP BY 1) as B
+                ON B.user_pseudo_id = A.cid)
+                GROUP BY 1,2,3,4
+            - projectId: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+            - collection: "crm-import"
+    - startQuery:
+        call: googleapis.bigquery.v2.jobs.insert
+        args:
+            projectId: ${projectId}
+            body:
+                configuration:
+                    query:
+                        useLegacySql: false
+                        maximumBytesBilled: 1000000000 # 10GB
+                        query: ${bq_query}
+        result: query
+    - getPage:
+        call: googleapis.bigquery.v2.jobs.getQueryResults
+        args:
+            projectId: ${projectId}
+            jobId: ${query.jobReference.jobId}
+            maxResults: 500
+            pageToken: ${pageToken}
+        result: page
+    - processPage:
+        for:
+          value: row
+          in: ${page.rows}
+          steps:
+            - processRow:
+                call: sys.log
+                args:
+                  data: ${row}
+            - parse_data:
+                call: map_bq_result
+                args:
+                    row: ${row}
+                    names: ['name','crm_id','created','job','crm_trans','crm_rev','web_trans','web_rev']
+                result: bq_map
+            - list_to_dict:
+                  call: list_to_dict
+                  args:
+                    a_list: ${bq_map}
+                  result: bq_dict            
+            - assign_row_values:
+                assign: 
+                    - values_to_write: ${bq_dict}
+                    - document: ${bq_dict.crm_id} # change to column holding firestore key
+            - write_to_firestore:
+                call: googleapis.firestore.v1.projects.databases.documents.patch
+                args:
+                    name: ${"projects/"+projectId+"/databases/(default)/documents/"+collection+"/"+document}
+                    body:
+                        fields: 
+                             arrayValue: ${values_to_write}
+                result: write_result
+    - checkIfDone:
+        switch:
+            - condition: ${"pageToken" in page and page.pageToken != ""}
+              assign:
+                - pageToken: ${page.pageToken}
+              next: getPage
+
+map_bq_result:
+  params: [row, names]
+  steps:
+    - init_cell_list:
+        assign:
+            - cell_list: []
+    - processRow:
+        for:
+            value: cell
+            in: ${row.f}
+            index: i
+            steps:
+            - map_cell:
+                assign: 
+                - name: ${names[i]}
+                - cell: {"${name}" : "${cell.v}"}
+                - cell_list: ${list.concat(cell_list, cell)}
+    - returnRowList:
+        return: ${cell_list}
+
+list_to_dict:
+    params: [a_list]
+    steps:
+      - init_dict: 
+          assign:
+            - the_dict: {}
+      - loop_list:
+          for:
+              value: entry
+              in: ${a_list}
+              steps:
+              - map_entry:
+                  assign:
+                  - the_name: ${keys(entry)[0]}
+                  - the_value: ${entry[the_name]}
+                  - the_dict[the_name]: ${the_value}
+      - log_dict:
+          call: sys.log
+          args:
+            data: ${the_dict}      
+      - return_dict:
+          return: ${the_dict}

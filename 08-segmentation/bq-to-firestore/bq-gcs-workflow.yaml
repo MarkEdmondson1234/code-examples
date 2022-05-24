@@ -1,0 +1,60 @@
+- init:
+    assign:
+    - project_id: "learning-ga4"
+    - bq_dataset_export: "firestore_export"
+    - bq_table_export: "uid_"
+    - bq_query: >
+            select
+                user_id,
+                device_first,
+                channel_grouping_first
+            from
+                `stacktonic-cloud.st_core.dim_customer`
+    - gcs_bucket: "<your-export-bucket>"
+    - gcs_filepath: "firestore-export/firestore-export.json"
+    - pubsub_topic: "<your-pubsub-topic-name>"
+    - pubsub_message: {
+            "projectId": "<your-firestore-project-id>",
+            "bucketName": "<your-export-bucket>",
+            "bucketPath": "firestore-export/firestore-export.json",
+            "firestoreCollection": "<your-firestore-collection>",
+            "firestoreKey": "<your-key-to-use-as-firestore-document-id>"
+        }
+- bigquery-create-export-table:
+                call: googleapis.bigquery.v2.jobs.insert
+                args:
+                    projectId: ${project_id}
+                    body:
+                        configuration:
+                            query:
+                                query: ${bq_query}
+                                destinationTable:
+                                    projectId: ${project_id}
+                                    datasetId: ${bq_dataset_export}
+                                    tableId: ${bq_table_export}
+                                create_disposition: "CREATE_IF_NEEDED"
+                                write_disposition: "WRITE_TRUNCATE"
+                                allowLargeResults: true
+                                useLegacySql: false
+
+- bigquery-table-to-gcs:
+    call: googleapis.bigquery.v2.jobs.insert
+    args:
+        projectId: ${project_id}
+        body:
+            configuration:
+                extract:
+                    compression: NONE
+                    destinationFormat: "NEWLINE_DELIMITED_JSON"
+                    destinationUris: ['${"gs://" + gcs_bucket + "/" + gcs_filepath}']
+                    sourceTable:
+                        projectId: ${project_id}
+                        datasetId: ${bq_dataset_export}
+                        tableId: ${bq_table_export}
+- publish_message_to_pubsub:
+    call: googleapis.pubsub.v1.projects.topics.publish
+    args:
+      topic: ${"projects/" + project_id + "/topics/" + pubsub_topic}
+      body:
+        messages:
+          - data: ${base64.encode(json.encode(pubsub_message))}

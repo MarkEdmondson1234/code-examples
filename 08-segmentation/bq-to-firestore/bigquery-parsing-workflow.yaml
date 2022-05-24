@@ -1,0 +1,19 @@
+map_bq_result:
+  params: [row, names]
+  steps:
+    - init_cell_map:
+      assign:
+        - cell_map: []
+    - processRow:
+        for:
+            value: cell
+            in: ${row.f}
+            index: i
+            steps:
+            - map_cell:
+                assign: 
+                - name: ${names[i]}
+                - cell: {"${name}" : "${cell.v}"}
+                - cell_map: ${cell_values} + ${cell}
+    - returnRowMap:
+        return: cell_map
