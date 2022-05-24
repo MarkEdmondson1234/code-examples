@@ -46,20 +46,25 @@ main:
             maxResults: 500
             pageToken: ${pageToken}
         result: page
+    - extract_schema:
+        call: extract_schema
+        args:
+            page: ${page}
+        result: schema_names
+    - log_schema:
+        call: sys.log
+        args:
+            data: ${schema_names}
     - processPage:
         for:
           value: row
           in: ${page.rows}
           steps:
-            - processRow:
-                call: sys.log
-                args:
-                  data: ${row}
             - parse_data:
                 call: map_bq_result
                 args:
                     row: ${row}
-                    names: ['name','crm_id','created','job','crm_trans','crm_rev','web_trans','web_rev']
+                    names: ${schema_names}
                 result: bq_map
             - list_to_dict:
                   call: list_to_dict
@@ -69,14 +74,13 @@ main:
             - assign_row_values:
                 assign: 
                     - values_to_write: ${bq_dict}
-                    - document: ${bq_dict.crm_id} # change to column holding firestore key
+                    - document: ${bq_dict.crm_id.stringValue} # change to column holding firestore key
             - write_to_firestore:
                 call: googleapis.firestore.v1.projects.databases.documents.patch
                 args:
                     name: ${"projects/"+projectId+"/databases/(default)/documents/"+collection+"/"+document}
                     body:
-                        fields: 
-                             arrayValue: ${values_to_write}
+                        fields: ${values_to_write}
                 result: write_result
     - checkIfDone:
         switch:
@@ -85,25 +89,50 @@ main:
                 - pageToken: ${page.pageToken}
               next: getPage
 
+extract_schema:
+    params: [page]
+    steps:
+        - init_schema_list:
+            assign:
+                - schema_list: []
+                - i: 0
+                - array: ${page.schema.fields}
+        - check_condition:
+            switch:
+                - condition: ${len(array) > i}
+                  next: iterate
+            next: exit_loop
+        - iterate:
+            assign:
+              - value: ${array[i].name}
+              - schema_list: ${list.concat(schema_list, value)}
+              - i: ${i+1}
+            next: check_condition
+        - exit_loop:
+            return: ${schema_list}
+
 map_bq_result:
-  params: [row, names]
-  steps:
-    - init_cell_list:
-        assign:
-            - cell_list: []
-    - processRow:
-        for:
-            value: cell
-            in: ${row.f}
-            index: i
-            steps:
-            - map_cell:
-                assign: 
-                - name: ${names[i]}
-                - cell: {"${name}" : "${cell.v}"}
-                - cell_list: ${list.concat(cell_list, cell)}
-    - returnRowList:
-        return: ${cell_list}
+    params: [row, names]
+    steps:
+        - init_cell_list:
+            assign:
+                - cell_list: []
+        - processRow: 
+        # TODO: map different types to BigQuery schema
+        # https://cloud.google.com/firestore/docs/reference/rest/Shared.Types/ArrayValue#Value
+            for:
+                value: cell
+                in: ${row.f}
+                index: i
+                steps:
+                - map_cell:
+                    assign: 
+                    - name: ${names[i]}
+                    - value: ${default(cell.v, "")}
+                    - cell: {"${name}" : { "stringValue": '${value}'}}
+                    - cell_list: ${list.concat(cell_list, cell)}
+        - returnRowList:
+            return: ${cell_list}
 
 list_to_dict:
     params: [a_list]
@@ -120,10 +149,6 @@ list_to_dict:
                   assign:
                   - the_name: ${keys(entry)[0]}
                   - the_value: ${entry[the_name]}
-                  - the_dict[the_name]: ${the_value}
-      - log_dict:
-          call: sys.log
-          args:
-            data: ${the_dict}      
+                  - the_dict[the_name]: ${the_value}   
       - return_dict:
           return: ${the_dict}
