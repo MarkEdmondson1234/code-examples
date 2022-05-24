@@ -27,6 +27,7 @@ main:
                 GROUP BY 1,2,3,4
             - projectId: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
             - collection: "crm-import"
+            - fs_key: crm_id  # change to column holding firestore key
     - startQuery:
         call: googleapis.bigquery.v2.jobs.insert
         args:
@@ -74,7 +75,8 @@ main:
             - assign_row_values:
                 assign: 
                     - values_to_write: ${bq_dict}
-                    - document: ${bq_dict.crm_id.stringValue} # change to column holding firestore key
+                    - fs_key_value: ${map.get(bq_dict, fs_key)}
+                    - document: ${fs_key_value.stringValue}
             - write_to_firestore:
                 call: googleapis.firestore.v1.projects.databases.documents.patch
                 args:
