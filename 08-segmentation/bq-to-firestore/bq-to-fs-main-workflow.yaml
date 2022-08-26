@@ -7,30 +7,38 @@
 #  - workflows invoker
 # workflows-bq-firestore@learning-ga4.iam.gserviceaccount.com
 main:
+    params: [args]
     steps:
     - init:
         assign:
             - pageToken: null
-            - bq_query: >
-                SELECT A.name, A.crm_id, created, job,
-                    sum(A.transactions) as sum_crm_trans, 
-                    sum(A.revenue) as sum_crm_rev, 
-                    sum(sum_web_trans) as sum_web_trans,
-                    sum(sum_web_rev) as sum_web_rev,
-                FROM (
-                    (SELECT * FROM `learning-ga4.crm_imports.fake_crm_transactions`) AS A
-                LEFT JOIN  
-                    (SELECT user_pseudo_id,  
-                            count(distinct ecommerce.transaction_id) as sum_web_trans,
-                            sum(ecommerce.purchase_revenue_in_usd) as sum_web_rev,
-                    FROM `learning-ga4.ga4_public_dataset.events_*`
-                    GROUP BY 1) as B
-                ON B.user_pseudo_id = A.cid)
-                GROUP BY 1,2,3,4
-                LIMIT 100 # for testing, in production remove
-            - projectId: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
-            - collection: "crm-import"
-            - fs_key: crm_id  # change to column holding firestore key
+            - default_query: >
+                  SELECT A.name, A.crm_id, created, job,
+                      sum(A.transactions) as sum_crm_trans, 
+                      sum(A.revenue) as sum_crm_rev, 
+                      sum(sum_web_trans) as sum_web_trans,
+                      sum(sum_web_rev) as sum_web_rev,
+                  FROM (
+                      (SELECT * FROM `learning-ga4.crm_imports.fake_crm_transactions`) AS A
+                  LEFT JOIN  
+                      (SELECT user_pseudo_id,  
+                              count(distinct ecommerce.transaction_id) as sum_web_trans,
+                              sum(ecommerce.purchase_revenue_in_usd) as sum_web_rev,
+                      FROM `learning-ga4.ga4_public_dataset.events_*`
+                      GROUP BY 1) as B
+                  ON B.user_pseudo_id = A.cid)
+                  GROUP BY 1,2,3,4
+                  LIMIT 2000  # for testing, in production remove LIMIT
+            - bq_query: ${default(map.get(args, "bq_query"), default_query)}
+            - projectId: ${default(map.get(args, "projectId"), sys.get_env("GOOGLE_CLOUD_PROJECT_ID"))}
+            - collection: ${default(map.get(args, "collection"), "crm-import")}
+            - fs_key: ${default(map.get(args, "fs_key"), "crm_id")}  # change to column holding firestore key
+            - maximumBytesBilled: ${default(map.get(args, "maximumBytesBilled"), 1000000000)} #10GB
+            - bq_page_size: ${default(map.get(args, "bq_page_size"), 50)} # firestore only accepts batches up to 500.
+    - log_init:
+        call: sys.log
+        args:
+            data: ${bq_query + projectId + collection + fs_key + string(maximumBytesBilled) + string(bq_page_size)}
     - startQuery:
         call: googleapis.bigquery.v2.jobs.insert
         args:
@@ -39,7 +47,7 @@ main:
                 configuration:
                     query:
                         useLegacySql: false
-                        maximumBytesBilled: 1000000000 # 10GB
+                        maximumBytesBilled: ${maximumBytesBilled}
                         query: ${bq_query}
         result: query
     - getPage:
@@ -47,7 +55,7 @@ main:
         args:
             projectId: ${projectId}
             jobId: ${query.jobReference.jobId}
-            maxResults: 10 # firestore only accepts batches up to 500
+            maxResults: ${bq_page_size}
             pageToken: ${pageToken}
         result: page
     - extract_schema:
