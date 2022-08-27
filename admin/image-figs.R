@@ -15,9 +15,9 @@ book_images <- lapply(book_text, \(x) x[grepl("^image", x)])
 images_df <- lapply(names(book_images), \(x){
   o <- book_images[[x]]
   if(length(o) == 0) return(NULL)
-  reggy <- "^image::images/(.+?\\.(png|jpg))\\[(.+)\\]"
+  reggy <- "^image::images/(.+?\\.(png|jpg))\\[(.*)\\]"
   filenames <- gsub(reggy, "\\1", o)
-  captions <- gsub(reggy, "\\2", o)
+  captions <- gsub(reggy, "\\3", o)
   chapter <- substr(x, 1,2)
   the_df <- data.frame(filename = filenames, caption = captions)
   the_df$fig_num <- paste0(chapter, "-", gsub(" ", "0", sprintf("%2d", 1:nrow(the_df))))
