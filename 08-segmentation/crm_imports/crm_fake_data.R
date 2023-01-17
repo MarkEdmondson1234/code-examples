@@ -50,7 +50,7 @@ write.csv(fake, file = filename, row.names = FALSE)
 
 # fake <- read.csv(filename,stringsAsFactors = FALSE, colClasses = "character")
 
-bqr_auth(email = "me@markedmondson.me")
+bqr_auth(email = "email@example.com")
 bqr_global_project("learning-ga4")
 bqr_global_dataset("crm_imports_us")
 
